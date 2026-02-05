@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS Intelligence Platform - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="text"], input[type="number"] {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 300px;
+            font-family: inherit;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        select, textarea {
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        button.danger {
+            background: #e74c3c;
+        }
+
+        button.danger:hover {
+            background: #c0392b;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .stats {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        .scan-progress {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #3498db;
+            transition: width 0.3s;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 15px 20px;
+            border-top: 1px solid #ecf0f1;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-icon {
+            font-size: 20px;
+            display: inline-block;
+            width: 24px;
+            text-align: center;
+        }
+
+        .error-count {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .error-count.zero {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .error-count.low {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .error-count.high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .url-cell {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .empty-state {
+            padding: 60px 20px;
+            text-align: center;
+            color: #7f8c8d;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .last-scan {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+
+        /* Select All Checkbox Styles */
+        .checkbox-cell {
+            text-align: center;
+            width: 40px;
+        }
+
+        .checkbox-header {
+            cursor: pointer;
+        }
+
+        tr.selected {
+            background: #e3f2fd !important;
+        }
+
+        .bulk-actions {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .bulk-actions-label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        button.secondary {
+            background: #95a5a6;
+        }
+
+        button.secondary:hover {
+            background: #7f8c8d;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .modal-content {
+            margin-bottom: 20px;
+            color: #7f8c8d;
+            line-height: 1.5;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Preview Modal Styles */
+        .preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .preview-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 1200px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-header {
+            padding: 25px 30px;
+            border-bottom: 2px solid #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-header h2 {
+            font-size: 20px;
+            color: #2c3e50;
+            margin: 0;
+            max-width: 80%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .preview-close {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .preview-close:hover {
+            background: #c0392b;
+            transform: scale(1.1);
+        }
+
+        .preview-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .preview-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .preview-stat {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .preview-stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .preview-stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .error-group {
+            margin-bottom: 25px;
+        }
+
+        .error-group-title {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .error-group-title.critical {
+            background: #fee;
+            color: #c0392b;
+        }
+
+        .error-group-title.high {
+            background: #ffe8e8;
+            color: #e74c3c;
+        }
+
+        .error-group-title.medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .error-group-title.low {
+            background: #e8f5e9;
+            color: #27ae60;
+        }
+
+        .error-card {
+            background: white;
+            border: 1px solid #ecf0f1;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+        }
+
+        .error-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .severity-badge.critical {
+            background: #fee;
+            color: #c0392b;
+        }
+
+        .severity-badge.high {
+            background: #ffe8e8;
+            color: #e74c3c;
+        }
+
+        .severity-badge.medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .severity-badge.low {
+            background: #e8f5e9;
+            color: #27ae60;
+        }
+
+        .error-card-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .error-details {
+            color: #7f8c8d;
+            font-size: 13px;
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+
+        .error-location {
+            font-size: 12px;
+            background: #f8f9fa;
+            padding: 6px 10px;
+            border-radius: 4px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .error-suggestion {
+            background: #e8f5e9;
+            border-left: 3px solid #27ae60;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #27ae60;
+            border-radius: 4px;
+        }
+
+        .preview-navigation {
+            padding: 20px 30px;
+            border-top: 2px solid #ecf0f1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .preview-nav-info {
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .preview-nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Charts Section Styles */
+        .charts-section {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            user-select: none;
+            padding: 5px 0;
+        }
+
+        .section-header h3 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .chart-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .chart-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        canvas {
+            max-height: 300px;
+        }
+
+        /* Filters Section Styles */
+        .filters-section {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .filter-group input[type="text"],
+        .filter-group select {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .filter-group input[type="range"] {
+            width: 100%;
+        }
+
+        .filter-range-value {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-summary {
+            margin-top: 15px;
+            padding: 12px 15px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+
+        .filter-summary button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <header>
+            <h1>🎨 CSS Intelligence Platform</h1>
+            <p class="subtitle">Monitoring et analyse CSS en temps réel</p>
+        </header>
+
+        <div class="controls">
+            <div class="input-group">
+                <input
+                    type="text"
+                    v-model="baseUrl"
+                    placeholder="https://example.com"
+                    @change="updateBaseUrl"
+                >
+                <button @click="startScan" :disabled="scanning || !baseUrl">
+                    {{ scanning ? '⏳ Scan en cours...' : '▶️ Démarrer le scan' }}
+                </button>
+            </div>
+
+            <div class="input-group">
+                <label class="checkbox-label">
+                    <input
+                        type="checkbox"
+                        v-model="monitoringEnabled"
+                        @change="toggleMonitoring"
+                    >
+                    <span>Monitoring continu</span>
+                </label>
+                <input
+                    type="number"
+                    v-model.number="scanInterval"
+                    min="1"
+                    max="60"
+                    style="min-width: 80px;"
+                    :disabled="!monitoringEnabled"
+                    @change="updateInterval"
+                >
+                <span style="color: #7f8c8d;">minutes</span>
+            </div>
+        </div>
+
+        <!-- DNS Configuration Section -->
+        <div class="controls" style="flex-direction: column; align-items: stretch;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="font-weight: 600; color: #2c3e50;">🌐 Configuration DNS</span>
+                <button @click="showDnsConfig = !showDnsConfig" class="btn-small secondary">
+                    {{ showDnsConfig ? 'Masquer' : 'Afficher' }}
+                </button>
+            </div>
+
+            <div v-show="showDnsConfig" style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="input-group" style="flex-direction: column; align-items: stretch;">
+                    <label style="font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 5px;">
+                        Host Resolver Rules (ex: MAP recipe.concilio.com 127.0.0.1)
+                    </label>
+                    <input
+                        type="text"
+                        v-model="hostResolverRules"
+                        placeholder="MAP example.com 192.168.1.100"
+                        @change="updateDnsConfig"
+                        style="width: 100%;"
+                    >
+                    <span style="font-size: 12px; color: #7f8c8d; margin-top: 5px;">
+                        💡 Format: MAP domain ip ou domain:port ip:port
+                    </span>
+                </div>
+
+                <div class="input-group" style="flex-direction: column; align-items: stretch;">
+                    <label style="font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 5px;">
+                        Arguments Chromium personnalisés (optionnel)
+                    </label>
+                    <textarea
+                        v-model="customBrowserArgsText"
+                        placeholder="--disable-gpu&#10;--window-size=1920,1080"
+                        @change="updateDnsConfig"
+                        rows="3"
+                        style="padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; width: 100%; resize: vertical;"
+                    ></textarea>
+                    <span style="font-size: 12px; color: #7f8c8d; margin-top: 5px;">
+                        💡 Un argument par ligne
+                    </span>
+                </div>
+
+                <button @click="updateDnsConfig" style="align-self: flex-start;">
+                    💾 Sauvegarder la configuration DNS
+                </button>
+            </div>
+        </div>
+
+        <div class="stats" v-if="stats">
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.totalUrls }}</div>
+                <div class="stat-label">URLs totales</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.activeUrls }}</div>
+                <div class="stat-label">URLs actives</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ stats.totalErrors }}</div>
+                <div class="stat-label">Erreurs totales</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ Math.round(stats.avgHealthScore) }}</div>
+                <div class="stat-label">Score santé moyen</div>
+            </div>
+        </div>
+
+        <div class="scan-progress" v-if="scanning && scanProgress">
+            <div>
+                <strong>Scan en cours:</strong> {{ scanProgress.current }} / {{ scanProgress.total }}
+            </div>
+            <div style="font-size: 14px; color: #7f8c8d; margin-top: 5px;">
+                {{ scanProgress.currentUrl }}
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
+            </div>
+            <div class="last-scan" v-if="lastScanTime">
+                Dernier scan: {{ formatTime(lastScanTime) }}
+            </div>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="filters-section" v-if="urls.length > 0">
+            <div class="section-header" @click="showFilters = !showFilters">
+                <h3>🔍 Filtres</h3>
+                <span>{{ showFilters ? '▼' : '▶' }}</span>
+            </div>
+
+            <div v-show="showFilters">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label>Recherche</label>
+                        <input
+                            type="text"
+                            v-model="filters.search"
+                            placeholder="Rechercher une URL..."
+                        >
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Statut</label>
+                        <select v-model="filters.status">
+                            <option value="">Tous</option>
+                            <option value="success">Succès</option>
+                            <option value="error">Erreur</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Sévérité minimale</label>
+                        <select v-model="filters.minSeverity">
+                            <option value="">Toutes</option>
+                            <option value="low">Low+</option>
+                            <option value="medium">Medium+</option>
+                            <option value="high">High+</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Score santé minimum</label>
+                        <div class="filter-range-value">
+                            <input
+                                type="range"
+                                v-model.number="filters.minHealthScore"
+                                min="0"
+                                max="100"
+                                step="5"
+                            >
+                            <span style="font-weight: 600; min-width: 40px;">{{ filters.minHealthScore }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-summary" v-if="isFiltering">
+                    <span>Affichage de <strong>{{ filteredUrls.length }}</strong> sur <strong>{{ urls.length }}</strong> URLs</span>
+                    <button @click="clearFilters" class="secondary">
+                        Effacer les filtres
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section" v-if="urls.length > 0">
+            <div class="section-header" @click="showCharts = !showCharts">
+                <h3>📊 Visualisations</h3>
+                <span>{{ showCharts ? '▼' : '▶' }}</span>
+            </div>
+
+            <div class="charts-grid" v-show="showCharts">
+                <div class="chart-container">
+                    <div class="chart-title">Distribution des erreurs par sévérité</div>
+                    <canvas ref="severityChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Types d'erreurs</div>
+                    <canvas ref="errorTypesChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Distribution du score santé</div>
+                    <canvas ref="healthScoreChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-title">Erreurs par URL</div>
+                    <canvas ref="errorsPerUrlChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Bar -->
+        <div class="bulk-actions" v-if="hasSelection">
+            <span class="bulk-actions-label">{{ selectedUrls.length }} sélectionné(s)</span>
+            <button @click="bulkExport" class="btn-small">
+                📥 Exporter MD
+            </button>
+            <button @click="bulkDelete" class="btn-small danger">
+                🗑️ Supprimer
+            </button>
+            <button @click="clearSelection" class="btn-small secondary">
+                ✕ Annuler
+            </button>
+        </div>
+
+        <div class="table-container">
+            <table v-if="urls.length > 0">
+                <thead>
+                    <tr>
+                        <th class="checkbox-header">
+                            <input
+                                type="checkbox"
+                                v-model="selectAll"
+                                @change="toggleSelectAll"
+                                :indeterminate.prop="isIndeterminate"
+                            >
+                        </th>
+                        <th>Status</th>
+                        <th>URL</th>
+                        <th>Erreurs</th>
+                        <th>Score</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr
+                        v-for="url in filteredUrls"
+                        :key="url.url"
+                        :class="{ selected: selectedUrls.includes(url.url) }"
+                    >
+                        <td class="checkbox-cell">
+                            <input
+                                type="checkbox"
+                                :value="url.url"
+                                v-model="selectedUrls"
+                            >
+                        </td>
+                        <td>
+                            <span class="status-icon">{{ getStatusIcon(url) }}</span>
+                        </td>
+                        <td class="url-cell" :title="url.url">{{ url.url }}</td>
+                        <td>
+                            <span :class="getErrorClass(url.errorCount)">
+                                {{ url.errorCount }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong :style="{ color: getScoreColor(url.healthScore) }">
+                                {{ url.healthScore }}
+                            </strong>
+                        </td>
+                        <td class="actions">
+                            <button
+                                class="btn-small"
+                                @click="previewErrors(url)"
+                                :disabled="url.errorCount === 0"
+                                title="Aperçu des erreurs"
+                            >
+                                👁️ Aperçu
+                            </button>
+                            <button
+                                class="btn-small"
+                                @click="copyErrors(url)"
+                                :disabled="url.errorCount === 0"
+                            >
+                                📋
+                            </button>
+                            <button
+                                class="btn-small"
+                                @click="exportMarkdown(url)"
+                            >
+                                📥
+                            </button>
+                            <button
+                                class="btn-small danger"
+                                @click="deleteURL(url)"
+                            >
+                                🗑️
+                            </button>
+                            <button
+                                class="btn-small danger"
+                                @click="toggleExclude(url)"
+                            >
+                                {{ url.excluded ? '✓' : '✗' }}
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="empty-state" v-else>
+                <div class="empty-state-icon">🔍</div>
+                <h3>Aucune URL analysée</h3>
+                <p style="margin-top: 10px;">Entrez une URL de base et lancez un scan pour commencer</p>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div class="modal-overlay" v-if="showDeleteConfirm" @click.self="showDeleteConfirm = false">
+            <div class="modal">
+                <div class="modal-title">Confirmer la suppression</div>
+                <div class="modal-content">
+                    <p v-if="deleteTarget.length === 1">
+                        Êtes-vous sûr de vouloir supprimer cette URL ?
+                    </p>
+                    <p v-else>
+                        Êtes-vous sûr de vouloir supprimer <strong>{{ deleteTarget.length }} URLs</strong> ?
+                    </p>
+                    <p style="margin-top: 10px; font-style: italic;">
+                        Cette action est irréversible.
+                    </p>
+                </div>
+                <div class="modal-actions">
+                    <button @click="showDeleteConfirm = false" class="secondary">
+                        Annuler
+                    </button>
+                    <button @click="confirmDelete" class="danger">
+                        Supprimer
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Modal -->
+        <div class="preview-modal" v-if="showPreview" @click.self="showPreview = false">
+            <div class="preview-content">
+                <div class="preview-header">
+                    <h2>{{ previewUrl?.url }}</h2>
+                    <button class="preview-close" @click="showPreview = false">×</button>
+                </div>
+
+                <div class="preview-body" v-if="previewUrl">
+                    <!-- Stats Cards -->
+                    <div class="preview-stats">
+                        <div class="preview-stat">
+                            <div class="preview-stat-value" :style="{ color: getScoreColor(previewUrl.healthScore) }">
+                                {{ previewUrl.healthScore }}
+                            </div>
+                            <div class="preview-stat-label">Health Score</div>
+                        </div>
+                        <div class="preview-stat">
+                            <div class="preview-stat-value">{{ previewUrl.errorCount }}</div>
+                            <div class="preview-stat-label">Total Errors</div>
+                        </div>
+                        <div class="preview-stat">
+                            <div class="preview-stat-value">{{ getErrorsBySeverity(previewUrl, 'critical').length }}</div>
+                            <div class="preview-stat-label">Critical</div>
+                        </div>
+                        <div class="preview-stat">
+                            <div class="preview-stat-value">{{ getErrorsBySeverity(previewUrl, 'high').length }}</div>
+                            <div class="preview-stat-label">High</div>
+                        </div>
+                    </div>
+
+                    <!-- Errors by Severity -->
+                    <div v-for="severity in ['critical', 'high', 'medium', 'low']" :key="severity">
+                        <div class="error-group" v-if="getErrorsBySeverity(previewUrl, severity).length > 0">
+                            <div class="error-group-title" :class="severity">
+                                {{ severity.toUpperCase() }} ({{ getErrorsBySeverity(previewUrl, severity).length }})
+                            </div>
+                            <div v-for="(error, index) in getErrorsBySeverity(previewUrl, severity)" :key="index" class="error-card">
+                                <div class="error-card-header">
+                                    <span class="severity-badge" :class="error.severity">
+                                        {{ error.severity }}
+                                    </span>
+                                    <div class="error-card-title">{{ error.message }}</div>
+                                </div>
+                                <div class="error-details">{{ error.details }}</div>
+                                <div v-if="error.location" class="error-location">
+                                    📍 {{ error.location.file || 'inline' }}<span v-if="error.location.line">:{{ error.location.line }}</span><span v-if="error.location.column">:{{ error.location.column }}</span>
+                                    <span v-if="error.location.selector"> ({{ error.location.selector }})</span>
+                                </div>
+                                <div v-if="error.suggestion" class="error-suggestion">
+                                    💡 {{ error.suggestion }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="previewUrl.errorCount === 0" style="text-align: center; padding: 40px; color: #27ae60;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
+                        <div style="font-size: 18px; font-weight: 600;">Aucune erreur détectée</div>
+                    </div>
+                </div>
+
+                <div class="preview-navigation">
+                    <span class="preview-nav-info">
+                        {{ previewIndex + 1 }} / {{ filteredUrls.length }}
+                    </span>
+                    <div class="preview-nav-buttons">
+                        <button
+                            @click="previewPrevious"
+                            :disabled="previewIndex === 0"
+                            class="secondary"
+                        >
+                            ← Précédent
+                        </button>
+                        <button
+                            @click="previewNext"
+                            :disabled="previewIndex === filteredUrls.length - 1"
+                        >
+                            Suivant →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    socket: null,
+                    baseUrl: '',
+                    urls: [],
+                    stats: null,
+                    scanning: false,
+                    scanProgress: null,
+                    monitoringEnabled: false,
+                    scanInterval: 5,
+                    lastScanTime: null,
+                    // Select All feature
+                    selectedUrls: [],
+                    selectAll: false,
+                    // Delete feature
+                    showDeleteConfirm: false,
+                    deleteTarget: [],
+                    // Preview feature
+                    showPreview: false,
+                    previewUrl: null,
+                    previewIndex: 0,
+                    // Charts feature
+                    showCharts: true,
+                    charts: {
+                        severity: null,
+                        errorTypes: null,
+                        healthScore: null,
+                        errorsPerUrl: null,
+                    },
+                    // Filter feature
+                    showFilters: true,
+                    filters: {
+                        search: '',
+                        status: '',
+                        minSeverity: '',
+                        minHealthScore: 0,
+                    },
+                    // DNS config feature
+                    showDnsConfig: false,
+                    hostResolverRules: '',
+                    customBrowserArgsText: '',
+                };
+            },
+            computed: {
+                progressPercentage() {
+                    if (!this.scanProgress) return 0;
+                    return (this.scanProgress.current / this.scanProgress.total) * 100;
+                },
+
+                isIndeterminate() {
+                    return this.selectedUrls.length > 0 &&
+                           this.selectedUrls.length < this.filteredUrls.length;
+                },
+
+                hasSelection() {
+                    return this.selectedUrls.length > 0;
+                },
+
+                filteredUrls() {
+                    let filtered = this.urls;
+
+                    // Search filter
+                    if (this.filters.search) {
+                        const search = this.filters.search.toLowerCase();
+                        filtered = filtered.filter(u => u.url.toLowerCase().includes(search));
+                    }
+
+                    // Status filter
+                    if (this.filters.status) {
+                        filtered = filtered.filter(u => u.status === this.filters.status);
+                    }
+
+                    // Health score filter
+                    if (this.filters.minHealthScore > 0) {
+                        filtered = filtered.filter(u => u.healthScore >= this.filters.minHealthScore);
+                    }
+
+                    // Severity filter
+                    if (this.filters.minSeverity) {
+                        const severityOrder = { low: 0, medium: 1, high: 2, critical: 3 };
+                        const minLevel = severityOrder[this.filters.minSeverity];
+                        filtered = filtered.filter(u => {
+                            if (!u.errors || u.errors.length === 0) return false;
+                            return u.errors.some(e => severityOrder[e.severity] >= minLevel);
+                        });
+                    }
+
+                    return filtered;
+                },
+
+                isFiltering() {
+                    return this.filters.search !== '' ||
+                           this.filters.status !== '' ||
+                           this.filters.minSeverity !== '' ||
+                           this.filters.minHealthScore > 0;
+                }
+            },
+            methods: {
+                async updateBaseUrl() {
+                    await fetch('/api/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ baseUrl: this.baseUrl })
+                    });
+                },
+
+                async updateDnsConfig() {
+                    try {
+                        // Parse customBrowserArgs from textarea (one per line)
+                        const customBrowserArgs = this.customBrowserArgsText
+                            .split('\n')
+                            .map(arg => arg.trim())
+                            .filter(arg => arg.length > 0);
+
+                        await fetch('/api/config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                hostResolverRules: this.hostResolverRules,
+                                customBrowserArgs: customBrowserArgs
+                            })
+                        });
+
+                        alert('✅ Configuration DNS sauvegardée ! Le navigateur sera relancé au prochain scan.');
+                    } catch (error) {
+                        alert('❌ Erreur lors de la sauvegarde de la configuration DNS');
+                        console.error(error);
+                    }
+                },
+                async startScan() {
+                    this.scanning = true;
+                    await fetch('/api/scan/start', { method: 'POST' });
+                },
+                async toggleMonitoring() {
+                    if (this.monitoringEnabled) {
+                        await fetch('/api/monitoring/start', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ interval: this.scanInterval })
+                        });
+                    } else {
+                        await fetch('/api/monitoring/stop', { method: 'POST' });
+                    }
+                },
+                async updateInterval() {
+                    if (this.monitoringEnabled) {
+                        await this.toggleMonitoring();
+                    }
+                },
+                async toggleExclude(url) {
+                    await fetch('/api/url/exclude', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: url.url, excluded: !url.excluded })
+                    });
+                },
+                copyErrors(url) {
+                    const text = url.errors.map(e =>
+                        `[${e.severity.toUpperCase()}] ${e.message}\n${e.details}\n${e.suggestion || ''}\n`
+                    ).join('\n');
+                    navigator.clipboard.writeText(text);
+                    alert('Erreurs copiées dans le presse-papiers!');
+                },
+                getStatusIcon(url) {
+                    if (url.excluded) return '⚫';
+                    if (url.errorCount === 0) return '🟢';
+                    if (url.errorCount < 5) return '🟠';
+                    return '🔴';
+                },
+                getErrorClass(count) {
+                    return `error-count ${count === 0 ? 'zero' : count < 5 ? 'low' : 'high'}`;
+                },
+                getScoreColor(score) {
+                    if (score >= 80) return '#27ae60';
+                    if (score >= 50) return '#f39c12';
+                    return '#e74c3c';
+                },
+                formatTime(timestamp) {
+                    const date = new Date(timestamp);
+                    return date.toLocaleTimeString('fr-FR');
+                },
+
+                // Select All methods
+                toggleSelectAll() {
+                    if (this.selectAll) {
+                        this.selectedUrls = this.filteredUrls.map(u => u.url);
+                    } else {
+                        this.selectedUrls = [];
+                    }
+                },
+
+                clearSelection() {
+                    this.selectedUrls = [];
+                    this.selectAll = false;
+                },
+
+                // Delete methods
+                deleteURL(url) {
+                    this.deleteTarget = [url.url];
+                    this.showDeleteConfirm = true;
+                },
+
+                bulkDelete() {
+                    this.deleteTarget = [...this.selectedUrls];
+                    this.showDeleteConfirm = true;
+                },
+
+                async confirmDelete() {
+                    try {
+                        if (this.deleteTarget.length === 1) {
+                            // Single delete
+                            await fetch(`/api/url/${encodeURIComponent(this.deleteTarget[0])}`, {
+                                method: 'DELETE'
+                            });
+                        } else {
+                            // Bulk delete
+                            await fetch('/api/urls/delete', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ urls: this.deleteTarget })
+                            });
+                        }
+
+                        this.clearSelection();
+                        this.showDeleteConfirm = false;
+                        this.deleteTarget = [];
+
+                        // Data will update via WebSocket
+                    } catch (error) {
+                        alert('Erreur lors de la suppression');
+                        console.error(error);
+                    }
+                },
+
+                // Markdown export methods
+                exportMarkdown(url) {
+                    const urls = url ? [url] : this.urls.filter(u => this.selectedUrls.includes(u.url));
+
+                    if (urls.length === 0) {
+                        alert('Aucune URL à exporter');
+                        return;
+                    }
+
+                    const markdown = this.generateMarkdown(urls);
+                    const blob = new Blob([markdown], { type: 'text/markdown' });
+                    const filename = `css-analysis-${new Date().toISOString().split('T')[0]}.md`;
+
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                },
+
+                bulkExport() {
+                    this.exportMarkdown(null);
+                },
+
+                generateMarkdown(urls) {
+                    let md = '# CSS Analysis Report\n\n';
+                    md += `Generated: ${new Date().toLocaleString('fr-FR')}\n\n`;
+                    md += `Total URLs: ${urls.length}\n\n`;
+                    md += '---\n\n';
+
+                    urls.forEach(url => {
+                        md += `## ${url.url}\n\n`;
+                        md += `- **Health Score**: ${url.healthScore}/100\n`;
+                        md += `- **Error Count**: ${url.errorCount}\n`;
+                        md += `- **Status**: ${url.status}\n`;
+                        md += `- **Last Scanned**: ${new Date(url.lastScanned).toLocaleString('fr-FR')}\n\n`;
+
+                        if (url.errors.length > 0) {
+                            md += '### Errors\n\n';
+
+                            // Group by severity
+                            const bySeverity = { critical: [], high: [], medium: [], low: [] };
+                            url.errors.forEach(error => {
+                                bySeverity[error.severity].push(error);
+                            });
+
+                            // Output by severity
+                            ['critical', 'high', 'medium', 'low'].forEach(severity => {
+                                const errors = bySeverity[severity];
+                                if (errors.length === 0) return;
+
+                                md += `#### ${severity.toUpperCase()} (${errors.length})\n\n`;
+
+                                errors.forEach(error => {
+                                    md += `- **${error.type}**: ${error.message}\n`;
+                                    md += `  - Details: ${error.details}\n`;
+
+                                    if (error.location) {
+                                        const loc = error.location;
+                                        md += `  - Location: ${loc.file || 'inline'}`;
+                                        if (loc.line) md += `:${loc.line}`;
+                                        if (loc.column) md += `:${loc.column}`;
+                                        if (loc.selector) md += ` (${loc.selector})`;
+                                        md += '\n';
+                                    }
+
+                                    if (error.suggestion) {
+                                        md += `  - Suggestion: ${error.suggestion}\n`;
+                                    }
+                                    md += '\n';
+                                });
+                            });
+                        } else {
+                            md += '✅ No errors detected\n\n';
+                        }
+
+                        md += '---\n\n';
+                    });
+
+                    md += '## Summary\n\n';
+                    const totalErrors = urls.reduce((sum, u) => sum + u.errorCount, 0);
+                    const avgHealth = urls.reduce((sum, u) => sum + u.healthScore, 0) / urls.length;
+                    md += `- Total Errors: ${totalErrors}\n`;
+                    md += `- Average Health Score: ${Math.round(avgHealth)}/100\n`;
+
+                    return md;
+                },
+
+                // Preview methods
+                previewErrors(url) {
+                    this.previewIndex = this.filteredUrls.findIndex(u => u.url === url.url);
+                    this.previewUrl = url;
+                    this.showPreview = true;
+                },
+
+                previewNext() {
+                    if (this.previewIndex < this.filteredUrls.length - 1) {
+                        this.previewIndex++;
+                        this.previewUrl = this.filteredUrls[this.previewIndex];
+                    }
+                },
+
+                previewPrevious() {
+                    if (this.previewIndex > 0) {
+                        this.previewIndex--;
+                        this.previewUrl = this.filteredUrls[this.previewIndex];
+                    }
+                },
+
+                getErrorsBySeverity(url, severity) {
+                    if (!url || !url.errors) return [];
+                    return url.errors.filter(e => e.severity === severity);
+                },
+
+                // Filter methods
+                clearFilters() {
+                    this.filters = {
+                        search: '',
+                        status: '',
+                        minSeverity: '',
+                        minHealthScore: 0,
+                    };
+                },
+
+                // Chart methods
+                updateCharts() {
+                    this.$nextTick(() => {
+                        if (typeof Chart === 'undefined') {
+                            console.warn('Chart.js not loaded');
+                            return;
+                        }
+
+                        this.renderSeverityChart();
+                        this.renderErrorTypesChart();
+                        this.renderHealthScoreChart();
+                        this.renderErrorsPerUrlChart();
+                    });
+                },
+
+                renderSeverityChart() {
+                    if (!this.$refs.severityChart) return;
+                    if (this.charts.severity) this.charts.severity.destroy();
+
+                    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+                    this.filteredUrls.forEach(url => {
+                        if (url.errors) {
+                            url.errors.forEach(e => {
+                                if (counts[e.severity] !== undefined) {
+                                    counts[e.severity]++;
+                                }
+                            });
+                        }
+                    });
+
+                    this.charts.severity = new Chart(this.$refs.severityChart, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Critical', 'High', 'Medium', 'Low'],
+                            datasets: [{
+                                data: [counts.critical, counts.high, counts.medium, counts.low],
+                                backgroundColor: [
+                                    '#fee',
+                                    '#ffe8e8',
+                                    '#fff3cd',
+                                    '#e8f5e9',
+                                ],
+                                borderColor: [
+                                    '#c0392b',
+                                    '#e74c3c',
+                                    '#856404',
+                                    '#27ae60',
+                                ],
+                                borderWidth: 2,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                }
+                            }
+                        }
+                    });
+                },
+
+                renderErrorTypesChart() {
+                    if (!this.$refs.errorTypesChart) return;
+                    if (this.charts.errorTypes) this.charts.errorTypes.destroy();
+
+                    const typeCounts = {};
+                    this.filteredUrls.forEach(url => {
+                        if (url.errors) {
+                            url.errors.forEach(e => {
+                                const type = e.type || 'Unknown';
+                                typeCounts[type] = (typeCounts[type] || 0) + 1;
+                            });
+                        }
+                    });
+
+                    const sortedTypes = Object.entries(typeCounts)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 10); // Top 10
+
+                    this.charts.errorTypes = new Chart(this.$refs.errorTypesChart, {
+                        type: 'bar',
+                        data: {
+                            labels: sortedTypes.map(([type]) => type),
+                            datasets: [{
+                                label: 'Nombre d\'erreurs',
+                                data: sortedTypes.map(([, count]) => count),
+                                backgroundColor: '#3498db',
+                                borderColor: '#2980b9',
+                                borderWidth: 1,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: false,
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                },
+
+                renderHealthScoreChart() {
+                    if (!this.$refs.healthScoreChart) return;
+                    if (this.charts.healthScore) this.charts.healthScore.destroy();
+
+                    // Group scores into ranges
+                    const ranges = {
+                        '0-20': 0,
+                        '21-40': 0,
+                        '41-60': 0,
+                        '61-80': 0,
+                        '81-100': 0,
+                    };
+
+                    this.filteredUrls.forEach(url => {
+                        const score = url.healthScore;
+                        if (score <= 20) ranges['0-20']++;
+                        else if (score <= 40) ranges['21-40']++;
+                        else if (score <= 60) ranges['41-60']++;
+                        else if (score <= 80) ranges['61-80']++;
+                        else ranges['81-100']++;
+                    });
+
+                    this.charts.healthScore = new Chart(this.$refs.healthScoreChart, {
+                        type: 'bar',
+                        data: {
+                            labels: Object.keys(ranges),
+                            datasets: [{
+                                label: 'Nombre d\'URLs',
+                                data: Object.values(ranges),
+                                backgroundColor: [
+                                    '#e74c3c',
+                                    '#f39c12',
+                                    '#f1c40f',
+                                    '#3498db',
+                                    '#27ae60',
+                                ],
+                                borderWidth: 1,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    display: false,
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                },
+
+                renderErrorsPerUrlChart() {
+                    if (!this.$refs.errorsPerUrlChart) return;
+                    if (this.charts.errorsPerUrl) this.charts.errorsPerUrl.destroy();
+
+                    // Top 10 URLs by error count
+                    const sortedUrls = [...this.filteredUrls]
+                        .sort((a, b) => b.errorCount - a.errorCount)
+                        .slice(0, 10);
+
+                    this.charts.errorsPerUrl = new Chart(this.$refs.errorsPerUrlChart, {
+                        type: 'bar',
+                        data: {
+                            labels: sortedUrls.map(u => {
+                                const url = u.url.length > 30 ? u.url.substring(0, 30) + '...' : u.url;
+                                return url;
+                            }),
+                            datasets: [{
+                                label: 'Nombre d\'erreurs',
+                                data: sortedUrls.map(u => u.errorCount),
+                                backgroundColor: '#e74c3c',
+                                borderColor: '#c0392b',
+                                borderWidth: 1,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            indexAxis: 'y',
+                            plugins: {
+                                legend: {
+                                    display: false,
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                },
+
+                async loadData() {
+                    const [urlsRes, statsRes, configRes] = await Promise.all([
+                        fetch('/api/urls'),
+                        fetch('/api/stats'),
+                        fetch('/api/config')
+                    ]);
+
+                    this.urls = await urlsRes.json();
+                    this.stats = await statsRes.json();
+                    const config = await configRes.json();
+
+                    this.baseUrl = config.baseUrl || '';
+                    this.monitoringEnabled = config.monitoringEnabled || false;
+                    this.scanInterval = config.scanInterval || 5;
+                    this.lastScanTime = config.lastScan || null;
+
+                    // Load DNS config
+                    this.hostResolverRules = config.hostResolverRules || '';
+                    this.customBrowserArgsText = (config.customBrowserArgs || []).join('\n');
+
+                    // Update charts after loading data
+                    this.updateCharts();
+                }
+            },
+            mounted() {
+                this.loadData();
+
+                // Setup WebSocket
+                this.socket = io();
+
+                this.socket.on('urls:update', (urls) => {
+                    this.urls = urls;
+                    this.updateCharts();
+                });
+
+                this.socket.on('scan:started', () => {
+                    this.scanning = true;
+                    this.scanProgress = null;
+                });
+
+                this.socket.on('scan:progress', (data) => {
+                    this.scanProgress = data;
+                });
+
+                this.socket.on('scan:completed', (data) => {
+                    this.scanning = false;
+                    this.scanProgress = null;
+                    this.lastScanTime = Date.now();
+                    this.loadData(); // This will also call updateCharts()
+                });
+
+                this.socket.on('config:update', (config) => {
+                    this.baseUrl = config.baseUrl || '';
+                    this.monitoringEnabled = config.monitoringEnabled || false;
+                    this.scanInterval = config.scanInterval || 5;
+                    this.hostResolverRules = config.hostResolverRules || '';
+                    this.customBrowserArgsText = (config.customBrowserArgs || []).join('\n');
+                });
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

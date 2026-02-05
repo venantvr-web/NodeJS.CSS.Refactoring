@@ -171,6 +171,129 @@ export class DashboardServer {
         res.status(500).json({ error: 'Failed to fetch history' });
       }
     });
+
+    // ========== AGENT ENDPOINTS ==========
+    // These endpoints allow autonomous agents to scan specific URLs
+    // and retrieve results progressively
+
+    // POST /api/agent/scan - Launch scan on specific URLs
+    this.app.post('/api/agent/scan', async (req, res) => {
+      try {
+        const { urls } = req.body;
+
+        // Validation
+        if (!Array.isArray(urls)) {
+          return res.status(400).json({ error: 'urls must be an array' });
+        }
+
+        if (urls.length === 0) {
+          return res.status(400).json({ error: 'urls array cannot be empty' });
+        }
+
+        // Check if scan is already running
+        if (this.orchestrator.isScanRunning()) {
+          return res.status(409).json({
+            error: 'A scan is already in progress',
+            status: 'running',
+          });
+        }
+
+        // Generate scanId for tracking
+        const scanId = `agent-${Date.now()}`;
+
+        // Respond immediately
+        res.json({
+          scanId,
+          status: 'started',
+          totalUrls: urls.length,
+          message: 'Scan started. Use /api/agent/status to check progress.',
+        });
+
+        // Launch scan asynchronously
+        log.info(`Agent scan ${scanId} started for ${urls.length} URLs`);
+        this.orchestrator.scanSpecificURLs(urls).catch((error) => {
+          log.error(`Agent scan ${scanId} failed:`, error);
+        });
+      } catch (error) {
+        log.error('Failed to start agent scan:', error);
+        res.status(500).json({ error: 'Failed to start agent scan' });
+      }
+    });
+
+    // GET /api/agent/status - Check scan status
+    this.app.get('/api/agent/status', async (req, res) => {
+      try {
+        const isRunning = this.orchestrator.isScanRunning();
+        const config = await database.getConfig();
+
+        res.json({
+          scanning: isRunning,
+          lastScan: config.lastScan || null,
+          status: isRunning ? 'running' : 'idle',
+        });
+      } catch (error) {
+        log.error('Failed to get agent status:', error);
+        res.status(500).json({ error: 'Failed to get agent status' });
+      }
+    });
+
+    // GET /api/agent/results?urls=url1,url2&offset=0&limit=100
+    // Retrieve results for specific URLs with pagination
+    this.app.get('/api/agent/results', async (req, res) => {
+      try {
+        const urlsParam = req.query.urls as string;
+        const offset = parseInt(req.query.offset as string) || 0;
+        const limit = parseInt(req.query.limit as string) || 100;
+
+        // Validation
+        if (!urlsParam) {
+          return res.status(400).json({
+            error: 'urls parameter is required (comma-separated list)',
+          });
+        }
+
+        // Parse URLs
+        const requestedUrls = urlsParam.split(',').map((u) => u.trim());
+
+        // Get all URLs from database
+        const allUrls = await database.getAllURLs();
+
+        // Filter to only requested URLs
+        const filteredResults = allUrls.filter((u) => requestedUrls.includes(u.url));
+
+        // Apply pagination
+        const paginatedResults = filteredResults.slice(offset, offset + limit);
+
+        // Calculate summary stats
+        const totalErrors = filteredResults.reduce((sum, u) => sum + u.errorCount, 0);
+        const avgHealthScore =
+          filteredResults.length > 0
+            ? Math.round(
+                filteredResults.reduce((sum, u) => sum + u.healthScore, 0) /
+                  filteredResults.length
+              )
+            : 0;
+
+        res.json({
+          results: paginatedResults,
+          pagination: {
+            offset,
+            limit,
+            total: filteredResults.length,
+            hasMore: offset + limit < filteredResults.length,
+            returned: paginatedResults.length,
+          },
+          summary: {
+            totalUrls: filteredResults.length,
+            totalErrors,
+            averageHealthScore: avgHealthScore,
+          },
+        });
+      } catch (error) {
+        log.error('Failed to fetch agent results:', error);
+        res.status(500).json({ error: 'Failed to fetch agent results' });
+      }
+    });
   }
 
   private setupWebSocket(): void {

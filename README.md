@@ -22,6 +22,7 @@ Plateforme de monitoring et analyse CSS en temps réel avec dashboard interactif
 - **WebSocket** pour mises à jour en temps réel
 - **Historisation** des scans
 - **Statistiques** globales
+- **API Agent** pour scans autonomes et récupération progressive de résultats
 
 ## 📋 Prérequis
 
@@ -174,7 +175,7 @@ Le projet utilise une base de données JSON (`css-audit-data.json`) qui stocke:
 
 Le serveur expose une API REST:
 
-### Endpoints
+### Endpoints standards
 
 - `GET /api/urls` - Liste toutes les URLs
 - `GET /api/stats` - Statistiques globales
@@ -185,6 +186,41 @@ Le serveur expose une API REST:
 - `POST /api/monitoring/stop` - Arrêter le monitoring
 - `POST /api/url/exclude` - Exclure/inclure une URL
 - `GET /api/history` - Historique des scans
+
+### API Agent (pour scripts autonomes)
+
+Endpoints spécialisés pour permettre à des agents autonomes de scanner des URLs spécifiques:
+
+- `POST /api/agent/scan` - Lancer un scan sur des URLs spécifiques
+  ```json
+  {
+    "urls": ["https://example.com", "https://example.com/about"]
+  }
+  ```
+
+- `GET /api/agent/status` - Vérifier si un scan est en cours
+  ```json
+  {
+    "scanning": true,
+    "lastScan": 1709123456789,
+    "status": "running"
+  }
+  ```
+
+- `GET /api/agent/results?urls=url1,url2&offset=0&limit=100` - Récupérer les résultats avec pagination
+  ```json
+  {
+    "results": [...],
+    "pagination": { "offset": 0, "limit": 100, "total": 2, "hasMore": false },
+    "summary": { "totalUrls": 2, "totalErrors": 5, "averageHealthScore": 85 }
+  }
+  ```
+
+**📖 Documentation complète**: [docs/AGENT_API.md](docs/AGENT_API.md)
+
+**🧪 Exemples**:
+- Script Node.js: [examples/agent-api-test.js](examples/agent-api-test.js)
+- Script curl: [examples/agent-api-curl.sh](examples/agent-api-curl.sh)
 
 ### WebSocket Events
 

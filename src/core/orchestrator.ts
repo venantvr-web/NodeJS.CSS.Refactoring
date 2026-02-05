@@ -248,4 +248,126 @@ export class Orchestrator extends EventEmitter {
     log.info(`URL ${url} ${excluded ? 'excluded' : 'included'}`);
     this.emit('url:excluded', { url, excluded });
   }
+
+  /**
+   * Scan specific URLs (for agent-based scanning)
+   */
+  async scanSpecificURLs(urls: string[]): Promise<void> {
+    if (this.isScanning) {
+      throw new Error('Scan already in progress');
+    }
+
+    this.isScanning = true;
+    const startTime = Date.now();
+
+    try {
+      log.info(`Starting agent scan for ${urls.length} URLs`);
+      this.emit('scan:started');
+
+      // Get config from database to get latest DNS settings
+      const dbConfig = await database.getConfig();
+
+      // Recreate crawler with updated config from database
+      const updatedCrawlerConfig = {
+        ...this.config.crawler,
+        hostResolverRules: dbConfig.hostResolverRules || '',
+        customBrowserArgs: dbConfig.customBrowserArgs || [],
+      };
+
+      this.crawler = new PageCrawler(updatedCrawlerConfig);
+      log.info('Crawler reinitialized with latest DNS configuration');
+
+      let scanned = 0;
+      let totalErrors = 0;
+
+      // Scan each URL
+      for (const url of urls) {
+        // Check if excluded
+        const urlRecord = await database.getURL(url);
+        if (urlRecord?.excluded) {
+          log.info(`Skipping excluded URL: ${url}`);
+          continue;
+        }
+
+        this.emit('scan:progress', {
+          current: scanned + 1,
+          total: urls.length,
+          currentUrl: url,
+        });
+
+        // Crawl page
+        const crawledPage = await this.crawler.crawlPage(url);
+
+        // Analyze CSS
+        const analysis = this.analyzer.analyze(crawledPage);
+
+        // Save to database
+        await database.addOrUpdateURL({
+          url,
+          status: crawledPage.status,
+          errors: analysis.errors,
+          errorCount: analysis.errors.length,
+          healthScore: analysis.summary.healthScore,
+        });
+
+        await database.updateURLErrors(url, analysis.errors, crawledPage.harPath);
+
+        totalErrors += analysis.errors.length;
+        scanned++;
+
+        this.emit('page:analyzed', {
+          url,
+          errorCount: analysis.errors.length,
+          healthScore: analysis.summary.healthScore,
+          status: crawledPage.status,
+        });
+
+        log.info(
+          `Analyzed ${url}: ${analysis.errors.length} errors, health: ${analysis.summary.healthScore}`
+        );
+      }
+
+      // Update config
+      await database.updateConfig({ lastScan: Date.now() });
+
+      // Add to history
+      const duration = Date.now() - startTime;
+      const history: Omit<ScanHistory, 'id'> = {
+        timestamp: Date.now(),
+        urlsScanned: scanned,
+        totalErrors,
+        duration,
+        summary: {
+          totalErrors,
+          errorsBySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+          errorsByType: {} as any,
+          healthScore: 0,
+          status: 'healthy',
+        },
+      };
+      await database.addScanHistory(history);
+
+      this.emit('scan:completed', {
+        urlsScanned: scanned,
+        totalErrors,
+        duration,
+      });
+
+      log.info(`Agent scan completed: ${scanned} URLs, ${totalErrors} total errors`);
+    } catch (error) {
+      log.error('Agent scan failed:', error);
+      this.emit('scan:error', error);
+      throw error;
+    } finally {
+      this.isScanning = false;
+      await this.crawler.close();
+    }
+  }
+
+  /**
+   * Check if a scan is currently running
+   */
+  isScanRunning(): boolean {
+    return this.isScanning;
+  }
 }

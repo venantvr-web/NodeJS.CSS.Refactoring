@@ -293,3 +293,7 @@ MIT
 ## 👨‍💻 Auteur
 
 Développé avec Claude Code & Sonnet 4.5
+
+## Stack
+
+[![Stack](https://skillicons.dev/icons?i=nodejs,ts,vue,express,css&theme=dark)](https://skillicons.dev)
